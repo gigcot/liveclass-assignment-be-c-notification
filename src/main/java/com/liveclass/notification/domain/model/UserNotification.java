@@ -92,6 +92,28 @@ public class UserNotification {
                 && (this.scheduledAt == null || !this.scheduledAt.isAfter(LocalDateTime.now()));
     }
 
+    public static UserNotification reconstruct(
+            UUID id, UUID userId, UUID eventId, UUID templateId,
+            SendStatus sendStatus, ReferenceData referenceData, RetryInfo retryInfo,
+            LocalDateTime scheduledAt, LocalDateTime sentAt, LocalDateTime readAt,
+            LocalDateTime createdAt, LocalDateTime updatedAt
+    ) {
+        UserNotification notification = new UserNotification();
+        notification.id = id;
+        notification.userId = userId;
+        notification.eventId = eventId;
+        notification.templateId = templateId;
+        notification.sendStatus = sendStatus;
+        notification.referenceData = referenceData;
+        notification.retryInfo = retryInfo;
+        notification.scheduledAt = scheduledAt;
+        notification.sentAt = sentAt;
+        notification.readAt = readAt;
+        notification.createdAt = createdAt;
+        notification.updatedAt = updatedAt;
+        return notification;
+    }
+
     // Getters
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
