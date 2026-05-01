@@ -5,36 +5,30 @@ import com.liveclass.notification.domain.exception.InvalidStatusTransitionExcept
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public class Notification {
+public class BroadcastNotification {
 
     private UUID id;
-    private String userId;
-    private String eventId;
-    private NotificationType type;
-    private Channel channel;
+    private UUID eventId;
+    private UUID templateId;
     private SendStatus sendStatus;
     private ReferenceData referenceData;
     private RetryInfo retryInfo;
 
     private LocalDateTime scheduledAt;
-    private LocalDateTime readAt;
+    private LocalDateTime sentAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static Notification create(
-            String userId,
-            String eventId,
-            NotificationType type,
-            Channel channel,
+    public static BroadcastNotification create(
+            UUID eventId,
+            UUID templateId,
             ReferenceData referenceData,
             LocalDateTime scheduledAt
     ) {
-        Notification notification = new Notification();
+        BroadcastNotification notification = new BroadcastNotification();
         notification.id = UUID.randomUUID();
-        notification.userId = userId;
         notification.eventId = eventId;
-        notification.type = type;
-        notification.channel = channel;
+        notification.templateId = templateId;
         notification.sendStatus = SendStatus.PENDING;
         notification.referenceData = referenceData;
         notification.retryInfo = new RetryInfo();
@@ -57,6 +51,7 @@ public class Notification {
             throw new InvalidStatusTransitionException(this.sendStatus, SendStatus.SENT);
         }
         this.sendStatus = SendStatus.SENT;
+        this.sentAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -68,14 +63,6 @@ public class Notification {
         if (!retryInfo.canRetry()) {
             this.sendStatus = SendStatus.FAILED;
         }
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void markRead() {
-        if (this.readAt != null) {
-            return; // 이미 읽음 — 멱등성
-        }
-        this.readAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -95,15 +82,13 @@ public class Notification {
 
     // Getters
     public UUID getId() { return id; }
-    public String getUserId() { return userId; }
-    public String getEventId() { return eventId; }
-    public NotificationType getType() { return type; }
-    public Channel getChannel() { return channel; }
+    public UUID getEventId() { return eventId; }
+    public UUID getTemplateId() { return templateId; }
     public SendStatus getSendStatus() { return sendStatus; }
     public ReferenceData getReferenceData() { return referenceData; }
     public RetryInfo getRetryInfo() { return retryInfo; }
     public LocalDateTime getScheduledAt() { return scheduledAt; }
-    public LocalDateTime getReadAt() { return readAt; }
+    public LocalDateTime getSentAt() { return sentAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
