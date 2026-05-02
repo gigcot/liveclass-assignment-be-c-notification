@@ -1,15 +1,12 @@
 package com.liveclass.notification.adapter.inbound.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.liveclass.notification.adapter.inbound.api.dto.SendNotificationRequest;
+import com.liveclass.notification.adapter.inbound.api.dto.RegisterNotificationRequest;
 import com.liveclass.notification.application.port.inbound.GetNotificationUseCase;
-import com.liveclass.notification.application.port.inbound.SendNotificationUseCase;
+import com.liveclass.notification.application.port.inbound.RegisterNotificationUseCase;
 import com.liveclass.notification.domain.exception.DuplicateNotificationException;
 import com.liveclass.notification.domain.exception.NotificationNotFoundException;
-import com.liveclass.notification.domain.model.ReferenceData;
-import com.liveclass.notification.domain.model.RetryInfo;
-import com.liveclass.notification.domain.model.SendStatus;
-import com.liveclass.notification.domain.model.UserNotification;
+import com.liveclass.notification.domain.model.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -37,18 +34,19 @@ class NotificationControllerTest {
     private ObjectMapper objectMapper;
 
     @MockitoBean
-    private SendNotificationUseCase sendNotificationUseCase;
+    private RegisterNotificationUseCase registerNotificationUseCase;
 
     @MockitoBean
     private GetNotificationUseCase getNotificationUseCase;
 
     @Test
-    void 알림_발송_요청_성공() throws Exception {
+    void 알림_접수_요청_성공() throws Exception {
         UUID id = UUID.randomUUID();
-        given(sendNotificationUseCase.request(any(), any(), any(), any(), any())).willReturn(id);
+        given(registerNotificationUseCase.register(any(), any(), any(), any(), any(), any(), any())).willReturn(id);
 
-        SendNotificationRequest request = new SendNotificationRequest(
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        RegisterNotificationRequest request = new RegisterNotificationRequest(
+                UUID.randomUUID(), UUID.randomUUID(), null,
+                NotificationType.ENROLLMENT_COMPLETE, Channel.IN_APP,
                 Map.of("courseId", "123"), null
         );
 
@@ -60,9 +58,9 @@ class NotificationControllerTest {
     }
 
     @Test
-    void 알림_발송_요청_필수값_누락_시_400() throws Exception {
+    void 알림_접수_필수값_누락_시_400() throws Exception {
         String body = """
-                { "userId": null, "eventId": null, "templateId": null }
+                { "userId": null, "eventId": null }
                 """;
 
         mockMvc.perform(post("/api/notifications")
@@ -75,11 +73,13 @@ class NotificationControllerTest {
     void 중복_요청_시_409() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
-        given(sendNotificationUseCase.request(any(), any(), any(), any(), any()))
+        given(registerNotificationUseCase.register(any(), any(), any(), any(), any(), any(), any()))
                 .willThrow(new DuplicateNotificationException(eventId, userId));
 
-        SendNotificationRequest request = new SendNotificationRequest(
-                userId, eventId, UUID.randomUUID(), Map.of(), null
+        RegisterNotificationRequest request = new RegisterNotificationRequest(
+                userId, eventId, null,
+                NotificationType.ENROLLMENT_COMPLETE, Channel.IN_APP,
+                Map.of(), null
         );
 
         mockMvc.perform(post("/api/notifications")
@@ -92,9 +92,10 @@ class NotificationControllerTest {
     void 단건_조회_성공() throws Exception {
         UUID id = UUID.randomUUID();
         UserNotification notification = UserNotification.reconstruct(
-                id, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                id, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), Channel.IN_APP,
                 SendStatus.PENDING, new ReferenceData(Map.of()),
-                new RetryInfo(), null, null, null,
+                new RetryInfo(), null, null,
+                null, null, null,
                 LocalDateTime.now(), LocalDateTime.now()
         );
         given(getNotificationUseCase.getById(id)).willReturn(notification);
