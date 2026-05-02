@@ -6,6 +6,7 @@ import com.liveklass.notification.domain.model.NotificationTemplate;
 import com.liveklass.notification.domain.model.NotificationType;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,5 +28,20 @@ public class TemplateRepositoryAdapter implements TemplateRepository {
     public Optional<NotificationTemplate> findLatestByTypeAndChannel(NotificationType type, Channel channel) {
         return jpaRepository.findTopByTypeAndChannelOrderByCreatedAtDesc(type, channel)
                 .map(TemplateJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<NotificationTemplate> findAll() {
+        return jpaRepository.findAll().stream().map(TemplateJpaEntity::toDomain).toList();
+    }
+
+    @Override
+    public NotificationTemplate save(NotificationTemplate template) {
+        return jpaRepository.save(TemplateJpaEntity.fromDomain(template)).toDomain();
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
     }
 }

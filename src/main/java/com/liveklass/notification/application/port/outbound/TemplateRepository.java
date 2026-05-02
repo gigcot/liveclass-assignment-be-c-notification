@@ -4,6 +4,7 @@ import com.liveklass.notification.domain.model.Channel;
 import com.liveklass.notification.domain.model.NotificationTemplate;
 import com.liveklass.notification.domain.model.NotificationType;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,4 +13,10 @@ public interface TemplateRepository {
     Optional<NotificationTemplate> findById(UUID id);
 
     Optional<NotificationTemplate> findLatestByTypeAndChannel(NotificationType type, Channel channel);
+
+    List<NotificationTemplate> findAll();
+
+    NotificationTemplate save(NotificationTemplate template);
+
+    void deleteById(UUID id);
 }

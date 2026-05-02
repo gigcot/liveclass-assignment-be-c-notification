@@ -6,7 +6,7 @@ import com.liveklass.notification.application.port.outbound.TemplateRepository;
 import com.liveklass.notification.domain.exception.DuplicateNotificationException;
 import com.liveklass.notification.domain.exception.NotificationNotFoundException;
 import com.liveklass.notification.domain.exception.TemplateNotFoundException;
-import com.liveclass.notification.domain.model.*;
+import com.liveklass.notification.domain.model.*;
 import com.liveklass.notification.domain.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -172,6 +172,11 @@ class NotificationServiceTest {
         }
 
         @Override
+        public List<UserNotification> findBySendStatus(SendStatus status) {
+            return store.values().stream().filter(n -> n.getSendStatus() == status).toList();
+        }
+
+        @Override
         public boolean existsByEventIdAndUserId(UUID eventId, UUID userId) {
             return store.values().stream()
                     .anyMatch(n -> n.getEventId().equals(eventId) && n.getUserId().equals(userId));
@@ -208,5 +213,15 @@ class NotificationServiceTest {
         public Optional<NotificationTemplate> findLatestByTypeAndChannel(NotificationType type, Channel channel) {
             return empty ? Optional.empty() : Optional.of(template);
         }
+
+        @Override
+        public List<NotificationTemplate> findAll() { return List.of(); }
+
+        @Override
+        public NotificationTemplate save(NotificationTemplate t) { return t; }
+
+        @Override
+        public void deleteById(UUID id) {}
     }
+
 }

@@ -4,6 +4,8 @@ import com.liveklass.notification.application.port.outbound.NotificationRegistra
 import com.liveklass.notification.application.port.outbound.NotificationRepository;
 import com.liveklass.notification.application.port.outbound.TemplateRepository;
 import com.liveklass.notification.application.service.NotificationService;
+import com.liveklass.notification.application.service.RetryNotificationService;
+import com.liveklass.notification.application.service.TemplateService;
 import com.liveklass.notification.application.service.UpdateNotificationStatusService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,5 +24,16 @@ public class BeanConfig {
     public UpdateNotificationStatusService updateNotificationStatusService(
             NotificationRepository notificationRepository) {
         return new UpdateNotificationStatusService(notificationRepository);
+    }
+
+    @Bean
+    public TemplateService templateService(TemplateRepository templateRepository) {
+        return new TemplateService(templateRepository);
+    }
+
+    @Bean
+    public RetryNotificationService retryNotificationService(NotificationRepository notificationRepository,
+                                                             NotificationRegistrationPort registrationPort) {
+        return new RetryNotificationService(notificationRepository, registrationPort);
     }
 }
