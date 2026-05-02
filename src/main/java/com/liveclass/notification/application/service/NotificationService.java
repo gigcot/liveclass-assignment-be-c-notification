@@ -2,41 +2,66 @@ package com.liveclass.notification.application.service;
 
 import com.liveclass.notification.domain.exception.DuplicateNotificationException;
 import com.liveclass.notification.domain.exception.NotificationNotFoundException;
-import com.liveclass.notification.domain.model.ReferenceData;
-import com.liveclass.notification.domain.model.UserNotification;
+import com.liveclass.notification.domain.exception.TemplateNotFoundException;
+import com.liveclass.notification.domain.model.*;
 import com.liveclass.notification.application.port.inbound.GetNotificationUseCase;
-import com.liveclass.notification.application.port.inbound.SendNotificationUseCase;
+import com.liveclass.notification.application.port.inbound.RegisterNotificationUseCase;
+import com.liveclass.notification.application.port.outbound.NotificationRegistrationPort;
 import com.liveclass.notification.application.port.outbound.NotificationRepository;
+import com.liveclass.notification.application.port.outbound.TemplateRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class NotificationService implements SendNotificationUseCase, GetNotificationUseCase {
+public class NotificationService implements RegisterNotificationUseCase, GetNotificationUseCase {
 
     private final NotificationRepository notificationRepository;
+    private final NotificationRegistrationPort registrationPort;
+    private final TemplateRepository templateRepository;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(NotificationRepository notificationRepository,
+                               NotificationRegistrationPort registrationPort,
+                               TemplateRepository templateRepository) {
         this.notificationRepository = notificationRepository;
+        this.registrationPort = registrationPort;
+        this.templateRepository = templateRepository;
     }
 
     @Override
-    public UUID request(UUID userId, UUID eventId, UUID templateId,
-                        Map<String, String> referenceData, LocalDateTime scheduledAt) {
+    public UUID register(UUID userId, UUID eventId, UUID templateId,
+                         NotificationType notificationType, Channel channel,
+                         Map<String, String> referenceData, LocalDateTime scheduledAt) {
 
         if (notificationRepository.existsByEventIdAndUserId(eventId, userId)) {
             throw new DuplicateNotificationException(eventId, userId);
         }
 
+        NotificationTemplate template = resolveTemplate(templateId, notificationType, channel);
+        ReferenceData data = new ReferenceData(referenceData != null ? referenceData : Map.of());
+        String renderedTitle = template.renderTitle(data);
+        String renderedBody = template.renderBody(data);
+
         UserNotification notification = UserNotification.create(
-                userId, eventId, templateId,
-                new ReferenceData(referenceData),
+                userId, eventId, template.getId(), channel, data, renderedTitle, renderedBody, scheduledAt
+        );
+        OutboxEvent outboxEvent = OutboxEvent.create(
+                notification.getId(),
+                new OutboxPayload(notification.getId(), userId, channel, renderedTitle + "\n" + renderedBody),
                 scheduledAt
         );
 
-        notificationRepository.save(notification);
-        return notification.getId();
+        return registrationPort.save(notification, outboxEvent);
+    }
+
+    private NotificationTemplate resolveTemplate(UUID templateId, NotificationType type, Channel channel) {
+        if (templateId != null) {
+            return templateRepository.findById(templateId)
+                    .orElseThrow(() -> TemplateNotFoundException.byId(templateId));
+        }
+        return templateRepository.findLatestByTypeAndChannel(type, channel)
+                .orElseThrow(() -> TemplateNotFoundException.byTypeAndChannel(type, channel));
     }
 
     @Override

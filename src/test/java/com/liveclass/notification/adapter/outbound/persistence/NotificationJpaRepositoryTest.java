@@ -1,9 +1,7 @@
 package com.liveclass.notification.adapter.outbound.persistence;
 
-import com.liveclass.notification.domain.model.ReferenceData;
-import com.liveclass.notification.domain.model.RetryInfo;
-import com.liveclass.notification.domain.model.SendStatus;
-import com.liveclass.notification.domain.model.UserNotification;
+import com.liveclass.notification.domain.model.*;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -65,9 +63,10 @@ class NotificationJpaRepositoryTest {
 
     private NotificationJpaEntity buildEntity(UUID userId, UUID eventId, LocalDateTime readAt) {
         UserNotification domain = UserNotification.reconstruct(
-                UUID.randomUUID(), userId, eventId, UUID.randomUUID(),
+                UUID.randomUUID(), userId, eventId, UUID.randomUUID(), Channel.IN_APP,
                 SendStatus.PENDING, new ReferenceData(Map.of()),
-                new RetryInfo(), null, null, readAt,
+                new RetryInfo(), null, null,
+                null, null, readAt,
                 LocalDateTime.now(), LocalDateTime.now()
         );
         return NotificationJpaEntity.fromDomain(domain);

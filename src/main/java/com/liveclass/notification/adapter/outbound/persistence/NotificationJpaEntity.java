@@ -1,5 +1,6 @@
 package com.liveclass.notification.adapter.outbound.persistence;
 
+import com.liveclass.notification.domain.model.Channel;
 import com.liveclass.notification.domain.model.ReferenceData;
 import com.liveclass.notification.domain.model.RetryInfo;
 import com.liveclass.notification.domain.model.SendStatus;
@@ -34,6 +35,10 @@ public class NotificationJpaEntity {
     private UUID templateId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "channel", nullable = false, length = 10)
+    private Channel channel;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "send_status", nullable = false, length = 20)
     private SendStatus sendStatus;
 
@@ -43,6 +48,12 @@ public class NotificationJpaEntity {
     @MapKeyColumn(name = "data_key")
     @Column(name = "data_value")
     private Map<String, String> referenceData;
+
+    @Column(name = "rendered_title")
+    private String renderedTitle;
+
+    @Column(name = "rendered_body", columnDefinition = "TEXT")
+    private String renderedBody;
 
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
@@ -71,8 +82,11 @@ public class NotificationJpaEntity {
         entity.userId = domain.getUserId();
         entity.eventId = domain.getEventId();
         entity.templateId = domain.getTemplateId();
+        entity.channel = domain.getChannel();
         entity.sendStatus = domain.getSendStatus();
         entity.referenceData = domain.getReferenceData().toMap();
+        entity.renderedTitle = domain.getRenderedTitle();
+        entity.renderedBody = domain.getRenderedBody();
         entity.retryCount = domain.getRetryInfo().getCount();
         entity.failureReason = domain.getRetryInfo().getFailureReason();
         entity.scheduledAt = domain.getScheduledAt();
@@ -85,9 +99,10 @@ public class NotificationJpaEntity {
 
     public UserNotification toDomain() {
         return UserNotification.reconstruct(
-                id, userId, eventId, templateId, sendStatus,
+                id, userId, eventId, templateId, channel, sendStatus,
                 new ReferenceData(referenceData),
                 new RetryInfo(retryCount, failureReason),
+                renderedTitle, renderedBody,
                 scheduledAt, sentAt, readAt, createdAt, updatedAt
         );
     }
