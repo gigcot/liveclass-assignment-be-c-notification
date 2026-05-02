@@ -1,11 +1,11 @@
 package com.liveclass.notification.adapter.inbound.api;
 
 import com.liveclass.notification.adapter.inbound.api.dto.FailedCallbackRequest;
+import com.liveclass.notification.adapter.inbound.api.dto.FailedCallbackResponse;
 import com.liveclass.notification.application.port.inbound.UpdateNotificationStatusUseCase;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -37,10 +37,10 @@ public class InternalNotificationController {
     }
 
     @PostMapping("/{id}/failed")
-    public ResponseEntity<Map<String, Boolean>> markFailed(
+    public ResponseEntity<FailedCallbackResponse> markFailed(
             @PathVariable UUID id,
             @RequestBody FailedCallbackRequest request) {
         boolean retry = updateStatusUseCase.markFailed(id, request.reason());
-        return ResponseEntity.ok(Map.of("retry", retry));
+        return ResponseEntity.ok(new FailedCallbackResponse(retry));
     }
 }
