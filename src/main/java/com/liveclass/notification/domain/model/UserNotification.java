@@ -16,6 +16,9 @@ public class UserNotification {
     private ReferenceData referenceData;
     private RetryInfo retryInfo;
 
+    private String renderedTitle;
+    private String renderedBody;
+
     private LocalDateTime scheduledAt;
     private LocalDateTime sentAt;
     private LocalDateTime readAt;
@@ -28,6 +31,8 @@ public class UserNotification {
             UUID templateId,
             Channel channel,
             ReferenceData referenceData,
+            String renderedTitle,
+            String renderedBody,
             LocalDateTime scheduledAt
     ) {
         UserNotification notification = new UserNotification();
@@ -38,6 +43,8 @@ public class UserNotification {
         notification.channel = channel;
         notification.sendStatus = SendStatus.PENDING;
         notification.referenceData = referenceData;
+        notification.renderedTitle = renderedTitle;
+        notification.renderedBody = renderedBody;
         notification.retryInfo = new RetryInfo();
         notification.scheduledAt = scheduledAt;
         notification.createdAt = LocalDateTime.now();
@@ -46,6 +53,9 @@ public class UserNotification {
     }
 
     public void markQueued() {
+        if (this.sendStatus == SendStatus.QUEUED) {
+            return; // 이미 QUEUED — 멱등성
+        }
         if (this.sendStatus != SendStatus.PENDING) {
             throw new InvalidStatusTransitionException(this.sendStatus, SendStatus.QUEUED);
         }
@@ -111,6 +121,7 @@ public class UserNotification {
     public static UserNotification reconstruct(
             UUID id, UUID userId, UUID eventId, UUID templateId, Channel channel,
             SendStatus sendStatus, ReferenceData referenceData, RetryInfo retryInfo,
+            String renderedTitle, String renderedBody,
             LocalDateTime scheduledAt, LocalDateTime sentAt, LocalDateTime readAt,
             LocalDateTime createdAt, LocalDateTime updatedAt
     ) {
@@ -123,6 +134,8 @@ public class UserNotification {
         notification.sendStatus = sendStatus;
         notification.referenceData = referenceData;
         notification.retryInfo = retryInfo;
+        notification.renderedTitle = renderedTitle;
+        notification.renderedBody = renderedBody;
         notification.scheduledAt = scheduledAt;
         notification.sentAt = sentAt;
         notification.readAt = readAt;
@@ -140,6 +153,8 @@ public class UserNotification {
     public SendStatus getSendStatus() { return sendStatus; }
     public ReferenceData getReferenceData() { return referenceData; }
     public RetryInfo getRetryInfo() { return retryInfo; }
+    public String getRenderedTitle() { return renderedTitle; }
+    public String getRenderedBody() { return renderedBody; }
     public LocalDateTime getScheduledAt() { return scheduledAt; }
     public LocalDateTime getSentAt() { return sentAt; }
     public LocalDateTime getReadAt() { return readAt; }
