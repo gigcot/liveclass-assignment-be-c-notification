@@ -11,6 +11,7 @@ public class UserNotification {
     private UUID userId;
     private UUID eventId;
     private UUID templateId;
+    private Channel channel;
     private SendStatus sendStatus;
     private ReferenceData referenceData;
     private RetryInfo retryInfo;
@@ -25,6 +26,7 @@ public class UserNotification {
             UUID userId,
             UUID eventId,
             UUID templateId,
+            Channel channel,
             ReferenceData referenceData,
             LocalDateTime scheduledAt
     ) {
@@ -33,6 +35,7 @@ public class UserNotification {
         notification.userId = userId;
         notification.eventId = eventId;
         notification.templateId = templateId;
+        notification.channel = channel;
         notification.sendStatus = SendStatus.PENDING;
         notification.referenceData = referenceData;
         notification.retryInfo = new RetryInfo();
@@ -50,8 +53,20 @@ public class UserNotification {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void markSent() {
+    public boolean claim() {
         if (this.sendStatus != SendStatus.QUEUED) {
+            return false;
+        }
+        this.sendStatus = SendStatus.SENDING;
+        this.updatedAt = LocalDateTime.now();
+        return true;
+    }
+
+    public void markSent() {
+        if (this.sendStatus == SendStatus.SENT) {
+            return; // 이미 발송 완료 — 멱등성
+        }
+        if (this.sendStatus != SendStatus.SENDING) {
             throw new InvalidStatusTransitionException(this.sendStatus, SendStatus.SENT);
         }
         this.sendStatus = SendStatus.SENT;
@@ -59,14 +74,15 @@ public class UserNotification {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void markFailed(String reason) {
-        if (this.sendStatus != SendStatus.QUEUED && this.sendStatus != SendStatus.PENDING) {
+    public void markFailed(FailureReason reason) {
+        if (this.sendStatus != SendStatus.SENDING && this.sendStatus != SendStatus.QUEUED && this.sendStatus != SendStatus.PENDING) {
             throw new InvalidStatusTransitionException(this.sendStatus, SendStatus.FAILED);
         }
         this.retryInfo = retryInfo.recordFailure(reason);
         if (!retryInfo.canRetry()) {
             this.sendStatus = SendStatus.FAILED;
         }
+        // 재시도 가능한 경우 상태 유지 (워커가 내부 재시도 루프에서 SENDING 유지)
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -93,7 +109,7 @@ public class UserNotification {
     }
 
     public static UserNotification reconstruct(
-            UUID id, UUID userId, UUID eventId, UUID templateId,
+            UUID id, UUID userId, UUID eventId, UUID templateId, Channel channel,
             SendStatus sendStatus, ReferenceData referenceData, RetryInfo retryInfo,
             LocalDateTime scheduledAt, LocalDateTime sentAt, LocalDateTime readAt,
             LocalDateTime createdAt, LocalDateTime updatedAt
@@ -103,6 +119,7 @@ public class UserNotification {
         notification.userId = userId;
         notification.eventId = eventId;
         notification.templateId = templateId;
+        notification.channel = channel;
         notification.sendStatus = sendStatus;
         notification.referenceData = referenceData;
         notification.retryInfo = retryInfo;
@@ -119,6 +136,7 @@ public class UserNotification {
     public UUID getUserId() { return userId; }
     public UUID getEventId() { return eventId; }
     public UUID getTemplateId() { return templateId; }
+    public Channel getChannel() { return channel; }
     public SendStatus getSendStatus() { return sendStatus; }
     public ReferenceData getReferenceData() { return referenceData; }
     public RetryInfo getRetryInfo() { return retryInfo; }

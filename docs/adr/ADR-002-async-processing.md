@@ -1,5 +1,9 @@
 # ADR-002: 비동기 발송 처리 구조
 
+## 상태
+
+~~ACCEPTED~~ → **SUPERSEDED** (개정 이력 참고)
+
 ## 컨텍스트
 
 알림 처리 실패가 비즈니스 트랜잭션에 영향을 주면 안 된다.
@@ -45,3 +49,54 @@ API는 접수 후 메시지 큐에 발송 요청을 넣고 즉시 응답한다.
 - 정상 경로에서 DB 부하 없음
 - 서버 재시작 시 미처리 알림 유실 없이 복구 가능
 - 과제에서는 메시지 큐 포트의 내부 구현체를 사용하며, 운영 전환 시 어댑터 교체로 실제 MQ로 전환 가능
+
+---
+
+## 개정 이력
+
+### 2026-05-02 — 결정 변경
+
+**변경 이유**
+
+기존 결정에서 "API가 메시지 큐에 직접 넣는다"는 구조는 DB 저장과 큐 삽입이 별개의 작업이므로,
+DB에는 저장됐지만 큐에 넣기 전 서버가 죽으면 해당 알림이 유실될 수 있다.
+이 문제를 근본적으로 해결하기 위해 Transactional Outbox Pattern을 도입한다.
+
+**변경된 결정**
+
+세 가지 역할로 분리한다.
+
+| 구성 요소 | Source | Sink | 특징 |
+|-----------|--------|------|------|
+| 접수 API | 클라이언트 요청 | DB (Outbox) | 비즈니스 로직과 함께 원자적 저장 |
+| 전달자 (Relay) | DB (Outbox) | Redis (Queue) | `FOR UPDATE SKIP LOCKED`로 중복 없이 큐에 적재 |
+| 워커 (Worker) | Redis (Queue) | 발송 API (외부) | 큐에서 꺼내 실제 전송 처리 |
+
+```
+POST /notifications
+  └─[트랜잭션]─ UserNotification INSERT
+               OutboxEvent INSERT
+                    ↓
+          Relay (여러 인스턴스 가능)
+    FOR UPDATE SKIP LOCKED로 Outbox 폴링
+    WHERE scheduled_at <= NOW()
+                    ↓
+              Redis Queue
+                    ↓
+          Worker (여러 인스턴스 가능)
+            /claim (QUEUED→SENDING, SELECT FOR UPDATE)
+            발송 → 상태 업데이트
+```
+
+**예약 발송**
+
+Relay 폴링 쿼리에 `scheduled_at <= NOW()` 조건을 추가한다.
+예약 시각이 되지 않은 row는 SKIP LOCKED 대상이 아닌 단순 미조회 대상이므로,
+시각이 지나는 순간 자연스럽게 다음 폴링 사이클에서 적재된다.
+별도 인메모리 스케줄러 불필요.
+
+**트레이드오프**
+
+- Relay 여러 인스턴스를 띄워도 `FOR UPDATE SKIP LOCKED`로 DB 레벨에서 중복 적재 방지
+- Debezium 같은 별도 CDC 인프라 불필요 → 운영 복잡도 감소
+- 폴링 주기만큼의 지연이 생기지만 알림 발송 특성상 허용 가능한 수준

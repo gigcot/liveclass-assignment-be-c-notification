@@ -1,6 +1,7 @@
 package com.liveclass.notification.domain.model;
 
 import com.liveclass.notification.domain.exception.InvalidStatusTransitionException;
+import com.liveclass.notification.domain.model.FailureReason;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ class UserNotificationTest {
                 USER_ID,
                 EVENT_ID,
                 TEMPLATE_ID,
+                Channel.IN_APP,
                 new ReferenceData(Map.of("courseName", "Spring Boot")),
                 null
         );
@@ -46,7 +48,7 @@ class UserNotificationTest {
         void shouldCreateWithScheduledAt() {
             LocalDateTime scheduled = LocalDateTime.now().plusDays(1);
             UserNotification notification = UserNotification.create(
-                    USER_ID, EVENT_ID, TEMPLATE_ID,
+                    USER_ID, EVENT_ID, TEMPLATE_ID, Channel.IN_APP,
                     new ReferenceData(Map.of()), scheduled
             );
 
@@ -69,18 +71,19 @@ class UserNotificationTest {
         }
 
         @Test
-        @DisplayName("QUEUED → SENT")
+        @DisplayName("QUEUED → SENDING → SENT")
         void shouldTransitionToSent() {
             UserNotification notification = createNotification();
             notification.markQueued();
+            notification.claim();
             notification.markSent();
 
             assertThat(notification.getSendStatus()).isEqualTo(SendStatus.SENT);
         }
 
         @Test
-        @DisplayName("QUEUED가 아닌 상태에서 SENT 전이 시 예외")
-        void shouldThrowWhenMarkSentFromNonQueued() {
+        @DisplayName("SENDING이 아닌 상태에서 SENT 전이 시 예외")
+        void shouldThrowWhenMarkSentFromNonSending() {
             UserNotification notification = createNotification();
 
             assertThatThrownBy(notification::markSent)
@@ -107,7 +110,7 @@ class UserNotificationTest {
         void shouldKeepStatusWhenRetryAvailable() {
             UserNotification notification = createNotification();
             notification.markQueued();
-            notification.markFailed("timeout");
+            notification.markFailed(FailureReason.TIMEOUT);
 
             assertThat(notification.getSendStatus()).isNotEqualTo(SendStatus.FAILED);
             assertThat(notification.getRetryInfo().canRetry()).isTrue();
@@ -118,9 +121,9 @@ class UserNotificationTest {
         void shouldMarkFailedAfterMaxRetry() {
             UserNotification notification = createNotification();
             notification.markQueued();
-            notification.markFailed("error 1");
-            notification.markFailed("error 2");
-            notification.markFailed("error 3");
+            notification.markFailed(FailureReason.SEND_FAILED);
+            notification.markFailed(FailureReason.SEND_FAILED);
+            notification.markFailed(FailureReason.SEND_FAILED);
 
             assertThat(notification.getSendStatus()).isEqualTo(SendStatus.FAILED);
             assertThat(notification.getRetryInfo().canRetry()).isFalse();
@@ -131,9 +134,9 @@ class UserNotificationTest {
         void shouldResetOnManualRetry() {
             UserNotification notification = createNotification();
             notification.markQueued();
-            notification.markFailed("error 1");
-            notification.markFailed("error 2");
-            notification.markFailed("error 3");
+            notification.markFailed(FailureReason.SEND_FAILED);
+            notification.markFailed(FailureReason.SEND_FAILED);
+            notification.markFailed(FailureReason.SEND_FAILED);
             notification.retryManually();
 
             assertThat(notification.getSendStatus()).isEqualTo(SendStatus.PENDING);
@@ -144,7 +147,7 @@ class UserNotificationTest {
         @DisplayName("PENDING 상태에서 실패 처리 가능 (큐 삽입 실패)")
         void shouldAllowMarkFailedFromPending() {
             UserNotification notification = createNotification();
-            notification.markFailed("queue unavailable");
+            notification.markFailed(FailureReason.CHANNEL_UNAVAILABLE);
 
             assertThat(notification.getRetryInfo().getCount()).isEqualTo(1);
         }
@@ -201,7 +204,7 @@ class UserNotificationTest {
         @DisplayName("PENDING이고 scheduledAt 지났으면 발송 가능")
         void shouldBeReadyWhenScheduledTimeHasPassed() {
             UserNotification notification = UserNotification.create(
-                    USER_ID, EVENT_ID, TEMPLATE_ID,
+                    USER_ID, EVENT_ID, TEMPLATE_ID, Channel.IN_APP,
                     new ReferenceData(Map.of()),
                     LocalDateTime.now().minusMinutes(1)
             );
@@ -213,7 +216,7 @@ class UserNotificationTest {
         @DisplayName("PENDING이고 scheduledAt 안 지났으면 발송 불가")
         void shouldNotBeReadyWhenScheduledTimeNotReached() {
             UserNotification notification = UserNotification.create(
-                    USER_ID, EVENT_ID, TEMPLATE_ID,
+                    USER_ID, EVENT_ID, TEMPLATE_ID, Channel.IN_APP,
                     new ReferenceData(Map.of()),
                     LocalDateTime.now().plusDays(1)
             );

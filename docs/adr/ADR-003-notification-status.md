@@ -16,8 +16,11 @@
 
 - 접수됐지만 아직 큐에 들어가지 않은 시점 → **PENDING**
 - 큐에 적재된 시점 → **QUEUED**
+- 워커가 발송을 점유한 시점 → **SENDING**
 - 발송 성공 → **SENT**
 - 재시도 소진 후 최종 실패 → **FAILED**
+
+SENDING은 중복 발송 방지를 위해 도입됐다. 워커가 `/claim`을 호출해 QUEUED → SENDING으로 원자적 전환에 성공한 경우에만 발송을 진행하며, 이미 SENDING/SENT/FAILED 상태인 경우 다른 워커는 skip한다. 내부 재시도 루프(최대 3회) 동안 SENDING 상태를 유지하며, 최종 결과에 따라 SENT 또는 FAILED로 전환된다. (ADR-004 참고)
 
 **예약 여부는 `scheduledAt` 필드로 분리한다.**
 

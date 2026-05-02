@@ -31,6 +31,12 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     }
 
     @Override
+    public Optional<UserNotification> findByIdForUpdate(UUID id) {
+        return jpaRepository.findByIdForUpdate(id)
+                .map(NotificationJpaEntity::toDomain);
+    }
+
+    @Override
     public List<UserNotification> findByUserId(UUID userId) {
         return jpaRepository.findByUserId(userId).stream()
                 .map(NotificationJpaEntity::toDomain)

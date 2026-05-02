@@ -12,6 +12,8 @@ public interface NotificationRepository {
 
     Optional<UserNotification> findById(UUID id);
 
+    Optional<UserNotification> findByIdForUpdate(UUID id);
+
     List<UserNotification> findByUserId(UUID userId);
 
     List<UserNotification> findByUserIdAndReadAtIsNull(UUID userId);
